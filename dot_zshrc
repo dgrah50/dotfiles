@@ -102,23 +102,54 @@ source ~/.oh-my-zsh/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+
+
+code () { VSCODE_CWD="$PWD" open -n -b "com.microsoft.VSCode" --args $* ;}
+
+ccd () {
+    mkdir -p -- "$1" && 
+    cd -P -- "$1"
+}
+
+dab () {
+    keep_branch=$1
+    for branch in $(git branch | grep -v "$keep_branch"); do
+        git branch -D $branch
+    done
+}
+
 alias cls="clear"
-alias gs='git status'
-alias gd='git diff'
-alias gcm='git commit -m'
-alias gp='git push'
-alias gb='git branch | fzf --height=20% --reverse --info=inline | xargs git checkout'
-alias ga='git add'
-alias gpl='git pull'
-alias prof='code ~/.zshrc'
 alias c='code .'
+alias gcm='~/better-commit.sh'
+alias br='~/better-branch.sh'
+alias gd='git diff'
+alias gb='git branch | fzf --height=20% --reverse --info=inline | xargs git checkout'
+alias gs='git status'
+alias gp='git push'
+alias gpl='git pull --recurse-submodules -j 20'
+alias gplod='git pull origin develop --no-ff'
+alias gplom='git pull origin master --no-ff'
+alias ga='git add'
+alias ys='yarn start'
 alias ysd='yarn start:dev'
+alias o='nautilus .'
+alias c='code .'
+alias prof='code ~/.zshrc'
 alias sauce='source ~/.zshrc'
+alias ys='yarn start'
+alias ysd='yarn start:dev'
+alias ysl='yarn start:local'
+alias obfp='ob-forward --env Production --forward-app-ports false --single-instance False'
+alias obfs='ob-forward --env Staging --forward-app-ports false --single-instance False'
+alias obft='ob-forward --env Test --forward-app-ports false --single-instance False'
 alias b='cd ..'
 alias bb='cd ../..'
 alias bbb='cd ../../..'
+alias ysl='yarn start:local'
+alias fs='y-zsh && yarn run codegen:schema:snapshot && cd ../..'
+alias disc='git restore .'
+alias clip='xclip -selection clipboard'
 
-code () { VSCODE_CWD="$PWD" open -n -b "com.microsoft.VSCode" --args $* ;}
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
