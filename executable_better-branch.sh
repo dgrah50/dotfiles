@@ -19,8 +19,6 @@ OPTIONS=("feat: A new feature"
 selected_option=$(printf "%s\n" "${OPTIONS[@]}" | fzf --height=20% --reverse --info=inline -1)
 PREFIX=$(echo $selected_option | awk -F': ' '{print $1}')
 
-echo $TOKEN
-
 # run the curl command populate the choices array
 choices=$(curl -s -X GET \
   -H "Authorization: Bearer $TOKEN" \
