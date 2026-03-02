@@ -1,0 +1,2 @@
+# Local-only environment for machine-specific secrets and overrides.
+# Copy to ~/.zshrc.local and customize on each machine.

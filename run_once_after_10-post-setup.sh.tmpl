@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v brew >/dev/null 2>&1; then
+  fzf_install="$(brew --prefix)/opt/fzf/install"
+  if [[ -x "$fzf_install" ]]; then
+    "$fzf_install" --all --no-bash --no-fish >/dev/null || true
+  fi
+fi
+
+if [[ -x "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]]; then
+  "$HOME/.tmux/plugins/tpm/bin/install_plugins" || true
+fi

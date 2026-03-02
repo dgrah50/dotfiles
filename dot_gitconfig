@@ -1,0 +1,17 @@
+[core]
+    pager = delta
+    excludesfile = ~/.gitignore_global
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    side-by-side = true
+
+[merge]
+    conflictstyle = zdiff3
+
+[user]
+    name = Dayan Graham
+    email = d.graham50@hotmail.co.uk

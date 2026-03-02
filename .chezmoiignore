@@ -1,0 +1,5 @@
+# Repository files that should not be managed into the home directory.
+README.md
+install.sh
+Brewfile
+AGENTS.md
