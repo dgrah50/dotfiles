@@ -49,6 +49,11 @@ install_base_packages_macos() {
     brew_install_if_missing gh
     brew_install_if_missing curl
     brew_install_if_missing jq
+    brew_install_if_missing node
+    brew_install_if_missing nvm
+    brew_install_if_missing bun
+    brew_install_if_missing python
+    brew_install_if_missing uv
     brew_install_if_missing fzf
     brew_install_if_missing tmux
     brew_install_if_missing ripgrep
@@ -65,7 +70,18 @@ install_base_packages_linux() {
   if have apt-get; then
     log "Installing packages with apt"
     sudo apt-get update
-    sudo apt-get install -y zsh git gh curl jq fzf tmux ripgrep bat golang-go rustc cargo
+    sudo apt-get install -y zsh git gh curl jq fzf tmux ripgrep bat golang-go rustc cargo nodejs npm python3 python3-venv
+    if ! command -v uv >/dev/null 2>&1; then
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      export PATH="$HOME/.local/bin:$PATH"
+    fi
+    if ! command -v bun >/dev/null 2>&1; then
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$HOME/.bun/bin:$PATH"
+    fi
+    if [[ ! -d "$HOME/.nvm" ]]; then
+      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+    fi
     if ! have chezmoi; then
       sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
       export PATH="$HOME/.local/bin:$PATH"

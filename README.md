@@ -54,7 +54,7 @@ chmod +x ./install.sh
 
 What it does:
 
-- Installs required tooling (`zsh`, `git`, `gh`, `jq`, `fzf`, `tmux`, `ripgrep`, `bat`, `zoxide`, `go`, `rust`, `chezmoi`) with Homebrew on macOS.
+- Installs required tooling (`zsh`, `git`, `gh`, `jq`, `node`, `nvm`, `bun`, `python`, `uv`, `fzf`, `tmux`, `ripgrep`, `bat`, `zoxide`, `go`, `rust`, `chezmoi`) with Homebrew on macOS.
 - Uses `Brewfile` on macOS when present (`brew bundle --file ./Brewfile`).
 - Applies dotfiles from this repo via `chezmoi -S <repo> init --apply`.
 - Installs Oh My Zsh and zsh plugins (`zsh-autosuggestions`, `zsh-syntax-highlighting`).
