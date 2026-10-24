@@ -12,6 +12,14 @@
 [merge]
     conflictstyle = zdiff3
 
+[credential "https://github.com"]
+    helper =
+    helper = !gh auth git-credential
+
+[credential "https://gist.github.com"]
+    helper =
+    helper = !gh auth git-credential
+
 [user]
     name = Dayan Graham
     email = d.graham50@hotmail.co.uk
