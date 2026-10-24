@@ -4,7 +4,6 @@ blur = true
 
 # Font settings (size, style, etc.)
 [font]
-normal = { family = "Operator Mono SSm Lig", style = "Light" }
 size = 12.0
 
 # Cursor settings (shape, blink, etc.)
