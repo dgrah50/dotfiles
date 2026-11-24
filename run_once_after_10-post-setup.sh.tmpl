@@ -4,7 +4,8 @@ set -euo pipefail
 if command -v brew >/dev/null 2>&1; then
   fzf_install="$(brew --prefix)/opt/fzf/install"
   if [[ -x "$fzf_install" ]]; then
-    "$fzf_install" --all --no-bash --no-fish >/dev/null || true
+    # --no-update-rc: keep ~/.zshrc untouched so chezmoi doesn't see drift.
+    "$fzf_install" --key-bindings --completion --no-update-rc --no-bash --no-fish >/dev/null || true
   fi
 fi
 

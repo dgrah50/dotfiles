@@ -59,7 +59,16 @@ What it does:
 - Applies dotfiles from this repo via `chezmoi -S <repo> init --apply`.
 - Installs Oh My Zsh and zsh plugins (`zsh-autosuggestions`, `zsh-syntax-highlighting`).
 - Installs tmux plugin manager (TPM) and tmux plugins.
-- Installs `gijq` from `github.com/dgrah50/gijq` and clones the repo to `~/src/gijq`.
+- Installs `gijq` from `github.com/dgrah50/gijq` (into `~/.local/bin`, no sudo) and clones the repo to `~/src/gijq`.
+
+On Linux (apt) it also installs `uv`, `bun`, `nvm` and `chezmoi` with their official installers, without letting them edit your shell rc files.
+
+Re-running and failures:
+
+- The script is safe to re-run. Each step checks what is already there, so a finished machine does no work and does not ask for sudo.
+- sudo is requested lazily, only when something (apt packages, installing Homebrew, `/etc/shells`, `chsh`) really needs it, and kept alive for the rest of the run. With no usable sudo and nothing to install, it never asks. If sudo is needed but unavailable, it says so and carries on with the user-level steps.
+- Optional steps warn and the script continues; a summary at the end lists what to retry, and the exit code is non-zero if anything failed.
+- If chezmoi finds files in `$HOME` that differ from this repo, it asks on a terminal and fails fast without one. Run `chezmoi -S <repo> diff` to review, then re-run with `DOTFILES_FORCE=1` to overwrite them.
 
 ## Config Layout
 
