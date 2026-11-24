@@ -16,6 +16,11 @@
 #   DOTFILES_FORCE=1   let chezmoi overwrite files in $HOME that differ from this
 #                      repo. Without it chezmoi asks on a terminal and fails fast
 #                      (instead of hanging) when there is none.
+#   DOTFILES_UPGRADE=1 also update what is already installed to the latest
+#                      version: Homebrew/apt packages, uv, bun, chezmoi, nvm,
+#                      gijq, Oh My Zsh, its plugins, TPM and tmux plugins.
+#                      Without it a re-run only fills in what is missing.
+#                      Pull this repo yourself first to get newer dotfiles.
 #
 # Written to run on macOS's stock bash 3.2 as well (no mapfile, no assoc arrays).
 
@@ -27,6 +32,10 @@ NVM_VERSION="v0.40.3"
 MAIN_PID=$$
 STATE_DIR=""
 FAILURES=()
+UPGRADE=0
+if [[ "${DOTFILES_UPGRADE:-}" == 1 ]]; then
+  UPGRADE=1
+fi
 
 # Never block on a credentials prompt in the middle of a clone.
 export GIT_TERMINAL_PROMPT=0
@@ -235,6 +244,16 @@ git_clone() {
   mv "$tmp" "$dest"
 }
 
+# git_update <dir>: fast-forward an existing checkout; never fatal, never destructive.
+git_update() {
+  local dir="$1"
+  if [[ ! -d "$dir/.git" ]]; then
+    return 0
+  fi
+  git -C "$dir" pull --ff-only --quiet ||
+    warn "Could not fast-forward $dir (local changes or diverged history); left as is"
+}
+
 # Make user-level install locations visible to *this* run. Without this, tools
 # installed into ~/.local/bin or ~/.bun/bin on one run are invisible to `have`
 # on the next (non-login shells don't have them on PATH) and get reinstalled.
@@ -292,6 +311,22 @@ install_base_packages_macos() {
 
   install_homebrew
 
+  if (( UPGRADE )); then
+    local name names=()
+    log "Updating Homebrew and upgrading the formulae in the Brewfile"
+    brew update || warn "brew update failed; continuing with the existing formula index"
+    brew bundle --file "$brewfile"
+    while IFS= read -r name; do
+      if [[ -n "$name" ]]; then
+        names+=("$name")
+      fi
+    done < <(brew bundle list --formula --file "$brewfile")
+    if (( ${#names[@]} > 0 )); then
+      brew upgrade --formula "${names[@]}"
+    fi
+    return 0
+  fi
+
   if brew bundle check --file "$brewfile" >/dev/null 2>&1; then
     log "Homebrew bundle already satisfied"
     return 0
@@ -335,6 +370,35 @@ apt_has_candidate() {
   [[ -n "$candidate" && "$candidate" != "(none)" ]]
 }
 
+apt_update_once() {
+  if [[ -e "$STATE_DIR/apt-updated" ]]; then
+    return 0
+  fi
+  # A stale third-party repo makes `update` fail even though the rest works.
+  as_root env DEBIAN_FRONTEND=noninteractive apt-get update -o DPkg::Lock::Timeout=120 ||
+    warn "apt-get update failed; trying with the existing package lists"
+  : >"$STATE_DIR/apt-updated"
+}
+
+upgrade_apt_packages() {
+  local pkg installed=()
+  for pkg in "${APT_PACKAGES[@]}"; do
+    if apt_pkg_installed "$pkg"; then
+      installed+=("$pkg")
+    fi
+  done
+  if (( ${#installed[@]} == 0 )); then
+    return 0
+  fi
+  log "Upgrading apt packages"
+  if ! acquire_sudo; then
+    err "Root access is needed to upgrade apt packages (run 'sudo -v' first, or run as root)."
+    return 1
+  fi
+  apt_update_once
+  apt_install --only-upgrade "${installed[@]}"
+}
+
 apt_install() {
   # --force-conf*: keep locally edited config files instead of stopping at a
   # dpkg "which version do you want?" prompt (fatal without a terminal).
@@ -362,9 +426,7 @@ install_base_packages_linux() {
       err "Run 'sudo -v' in this terminal and re-run, ask an admin to install them, or run as root."
       return 1
     fi
-    # A stale third-party repo makes `update` fail even though the rest works.
-    as_root env DEBIAN_FRONTEND=noninteractive apt-get update -o DPkg::Lock::Timeout=120 ||
-      warn "apt-get update failed; trying with the existing package lists"
+    apt_update_once
 
     # One package that doesn't exist on this release (e.g. gh on older Ubuntu)
     # would otherwise abort the whole `apt-get install`.
@@ -390,6 +452,10 @@ install_base_packages_linux() {
     fi
   fi
 
+  if (( UPGRADE )); then
+    upgrade_apt_packages || failed+=("apt upgrade")
+  fi
+
   # Debian/Ubuntu ship bat as `batcat`.
   if ! have bat && have batcat; then
     ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
@@ -402,16 +468,20 @@ install_base_packages_linux() {
 }
 
 install_uv() {
-  if have uv; then
+  if have uv && (( ! UPGRADE )); then
     return 0
   fi
-  log "Installing uv"
+  log "Installing uv (latest)"
   UV_NO_MODIFY_PATH=1 run_remote_script https://astral.sh/uv/install.sh sh
   have uv || die "uv installed but is not on PATH"
 }
 
 install_bun() {
   if have bun; then
+    if (( UPGRADE )); then
+      log "Upgrading bun"
+      bun upgrade
+    fi
     return 0
   fi
   have unzip || die "bun's installer needs 'unzip'"
@@ -422,9 +492,26 @@ install_bun() {
   have bun || die "bun installed but is not on PATH"
 }
 
+# Latest nvm release tag via the releases redirect (no API rate limit); falls
+# back to the pinned version if it can't be resolved.
+latest_nvm_version() {
+  local url tag
+  url="$(curl -fsSLI --connect-timeout 15 -o /dev/null -w '%{url_effective}' \
+    https://github.com/nvm-sh/nvm/releases/latest 2>/dev/null)" || url=""
+  tag="${url##*/}"
+  case "$tag" in
+    v[0-9]*) printf '%s\n' "$tag" ;;
+    *) printf '%s\n' "$NVM_VERSION" ;;
+  esac
+}
+
 install_nvm() {
+  local NVM_VERSION="$NVM_VERSION"
   if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
-    return 0
+    if (( ! UPGRADE )); then
+      return 0
+    fi
+    NVM_VERSION="$(latest_nvm_version)"
   fi
   log "Installing nvm $NVM_VERSION"
   # PROFILE=/dev/null: don't append to shell rc files (path.zsh loads nvm).
@@ -434,10 +521,10 @@ install_nvm() {
 }
 
 install_chezmoi() {
-  if have chezmoi; then
+  if have chezmoi && (( ! UPGRADE )); then
     return 0
   fi
-  log "Installing chezmoi"
+  log "Installing chezmoi (latest)"
   run_remote_script https://get.chezmoi.io sh -b "$HOME/.local/bin"
   have chezmoi || die "chezmoi installed but is not on PATH"
 }
@@ -474,6 +561,13 @@ install_oh_my_zsh() {
     "$custom/plugins/zsh-autosuggestions" 1
   git_clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
     "$custom/plugins/zsh-syntax-highlighting" 1
+
+  if (( UPGRADE )); then
+    log "Updating Oh My Zsh and plugins"
+    git_update "$HOME/.oh-my-zsh"
+    git_update "$custom/plugins/zsh-autosuggestions"
+    git_update "$custom/plugins/zsh-syntax-highlighting"
+  fi
 }
 
 install_tmux_plugin_manager() {
@@ -487,10 +581,18 @@ install_tmux_plugin_manager() {
     log "Installing tmux plugins from ~/.tmux.conf"
     "$HOME/.tmux/plugins/tpm/bin/install_plugins"
   fi
+
+  if (( UPGRADE )); then
+    log "Updating TPM and tmux plugins"
+    git_update "$HOME/.tmux/plugins/tpm"
+    if [[ -f "$HOME/.tmux.conf" && -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ]]; then
+      "$HOME/.tmux/plugins/tpm/bin/update_plugins" all
+    fi
+  fi
 }
 
 install_gijq_binary() {
-  if have gijq; then
+  if have gijq && (( ! UPGRADE )); then
     return 0
   fi
   log "Installing gijq release from dgrah50/gijq into ~/.local/bin"
@@ -507,8 +609,7 @@ sync_gijq_repo() {
   git_clone https://github.com/dgrah50/gijq.git "$HOME/src/gijq"
   if [[ -d "$HOME/src/gijq/.git" ]]; then
     log "Updating ~/src/gijq"
-    git -C "$HOME/src/gijq" pull --ff-only ||
-      warn "Could not fast-forward ~/src/gijq (local changes or diverged history); left as is"
+    git_update "$HOME/src/gijq"
   fi
 }
 
@@ -567,6 +668,9 @@ main() {
   setup_brew_env
 
   log "Bootstrapping system for dotfiles"
+  if (( UPGRADE )); then
+    log "DOTFILES_UPGRADE=1: also updating installed tools to their latest versions"
+  fi
 
   if [[ "$OS" == Darwin ]]; then
     run_step optional "Homebrew packages" install_base_packages_macos

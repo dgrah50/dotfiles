@@ -67,6 +67,7 @@ Re-running and failures:
 
 - The script is safe to re-run. Each step checks what is already there, so a finished machine does no work and does not ask for sudo.
 - sudo is requested lazily, only when something (apt packages, installing Homebrew, `/etc/shells`, `chsh`) really needs it, and kept alive for the rest of the run. With no usable sudo and nothing to install, it never asks. If sudo is needed but unavailable, it says so and carries on with the user-level steps.
+- A re-run only fills in what is missing; it does not update anything already installed. To update everything to the latest version, run `DOTFILES_UPGRADE=1 ./install.sh` (Homebrew/apt packages, uv, bun, chezmoi, nvm, gijq, Oh My Zsh and its plugins, TPM and tmux plugins). `git pull` this repo first if you also want newer dotfiles.
 - Optional steps warn and the script continues; a summary at the end lists what to retry, and the exit code is non-zero if anything failed.
 - If chezmoi finds files in `$HOME` that differ from this repo, it asks on a terminal and fails fast without one. Run `chezmoi -S <repo> diff` to review, then re-run with `DOTFILES_FORCE=1` to overwrite them.
 
